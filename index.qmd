@@ -1,0 +1,131 @@
+---
+title: "Audio Dashboard - Million Song Dataset"
+author: Tiago Teixeira, Jaime Rodrigues
+format: 
+    dashboard:
+        orientation: columns
+        scrolling: true
+        theme: dark
+---
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+```{ojs}
+
+
+dataHigh = FileAttachment("data/high_popularity_spotify_data.json").json()
+dataLow = FileAttachment("data/low_popularity_spotify_data.json").json()
+
+all_music = [
+    ...dataHigh.map(d => ({...d, category: "High"})),
+    ...dataLow.map(d => ({...d, category: "Low"}))
+]
+
+viewof search = Inputs.search(all_music, {label: "Procurar música ou artista:"})
+
+Plot.plot({
+    grid: true,
+    color: {
+        legend: true,
+        domain: ["High", "Low"],
+        range: ["#0be7d5", "#ff4d4d"]
+    },
+    marks: [
+        Plot.dot(search, {
+            x: "danceability",
+            y: "energy",
+            stroke: "category",
+            tip: true,
+            strokeWidth: d => d.track_id === selectedTrack?.track_id ? 4 : 1,
+            r: d => d.track_id === selectedTrack?.track_id ? 8 : 3
+        })
+    ]
+})
+
+viewof selectedTrack = Inputs.table(all_music, {
+    rows: 12,
+    multiple: false,
+    layout: "fixed",
+    columns: ["track_name", "track_artist", "playlist_genre", "track_popularity"]
+})
+
+``` 
+
+## Column {width=40%}
+
+``` {ojs}
+currentTrack = selectedTrack || all_music[0]
+
+radarData = [
+    {axis: "Energy", value: currentTrack.energy },
+    {axis: "Dance", value: currentTrack.danceability },
+    {axis: "Acoustic", value: currentTrack.acousticness },
+    {axis: "Valence", value: currentTrack.valence },
+    {axis: "Speech", value: currentTrack.speechiness }
+];
+
+
+{
+    const margin = 50, width = 400, height = 400;
+    const radius = Math.min(width, height) / 2 - margin;
+    const svg = d3.create("svg").attr("viewBox", [0, 0, width, height]);
+    const g = svg.append("g").attr("transform", `translate(${width/2},${height/2})`);
+    
+    const angleSlice = (Math.PI * 2) / radarData.length;
+    const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius]);
+
+    // Desenhar círculos de fundo
+    const levels = 5;
+    for (let i = 0; i < levels; i++) {
+        g.append("circle")
+            .attr("r", radius * ((i + 1) / levels))
+            .style("fill", "none").style("stroke", "#444").style("stroke-dasharray", "4,4");
+    }
+
+    // Desenhar a forma do radar
+    const radarLine = d3.lineRadial()
+        .curve(d3.curveLinearClosed)
+        .radius(d => rScale(d.value))
+        .angle((d, i) => i * angleSlice);
+
+    g.append("path")
+        .datum(radarData)
+        .attr("d", radarLine)
+        .style("fill", currentTrack.category === "High" ? "#0be7d5" : "#ff4d4d")
+        .style("fill-opacity", 0.6)
+        .style("stroke", "white")
+        .style("stroke-width", "2px");
+
+    // Adicionar labels
+    g.selectAll(".label")
+        .data(radarData)
+        .enter().append("text")
+        .attr("x", (d, i) => rScale(1.2) * Math.cos(angleSlice * i - Math.PI/2))
+        .attr("y", (d, i) => rScale(1.2) * Math.sin(angleSlice * i - Math.PI/2))
+        .text(d => d.axis)
+        .style("font-family", "sans-serif").style("font-size", "12px")
+        .attr("text-anchor", "middle").style("fill", "white");
+
+    return svg.node();
+}
+```
+
+``` {ojs}
+
+html`<iframe
+    src=${"https://open.spotify.com/embed/track/" + (selectedTrack?.track_id || all_music[0].track_id)}
+    width="100%" height="152"
+    frameborder="0"
+    allowtransparency="true"
+    allow="encrypted-media"></iframe>`
+
+```      
+
