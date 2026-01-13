@@ -6,7 +6,10 @@ format:
         orientation: columns
         scrolling: true
         theme: dark
+        css: main.css
 ---
+
+<link rel="stylesheet" href="assets/css/main.css">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -24,20 +27,18 @@ format:
 dataHigh = FileAttachment("data/high_popularity_spotify_data.json").json()
 dataLow = FileAttachment("data/low_popularity_spotify_data.json").json()
 
-all_music = [
-    ...dataHigh.map(d => ({...d, category: "High"})),
-    ...dataLow.map(d => ({...d, category: "Low"}))
-]
+all_music = {
+    const combined = [
+        ...dataHigh.map(d => ({...d, category: "High"})),
+        ...dataLow.map(d => ({...d, category: "Low"}))
+    ];
+    return Array.from(new Map(combined.map(item => [item.track_id, item])).values());
+}
 
 viewof search = Inputs.search(all_music, {label: "Procurar música ou artista:"})
 
 Plot.plot({
     grid: true,
-    color: {
-        legend: true,
-        domain: ["High", "Low"],
-        range: ["#0be7d5", "#ff4d4d"]
-    },
     marks: [
         Plot.dot(search, {
             x: "danceability",
@@ -50,7 +51,7 @@ Plot.plot({
     ]
 })
 
-viewof selectedTrack = Inputs.table(all_music, {
+viewof selectedTrack = Inputs.table(search, {
     rows: 12,
     multiple: false,
     layout: "fixed",
@@ -62,7 +63,7 @@ viewof selectedTrack = Inputs.table(all_music, {
 ## Column {width=40%}
 
 ``` {ojs}
-currentTrack = selectedTrack || all_music[0]
+currentTrack = selectedTrack || search[0] || all_music[0]
 
 radarData = [
     {axis: "Energy", value: currentTrack.energy },
@@ -74,23 +75,59 @@ radarData = [
 
 
 {
-    const margin = 50, width = 400, height = 400;
+    // 1. Aumentamos as dimensões e a margem (espaço para o texto)
+    const width = 500; 
+    const height = 500;
+    const margin = 80; // Margem generosa para as labels
+    
     const radius = Math.min(width, height) / 2 - margin;
-    const svg = d3.create("svg").attr("viewBox", [0, 0, width, height]);
-    const g = svg.append("g").attr("transform", `translate(${width/2},${height/2})`);
+    
+    // Criar o SVG com um viewBox que abrange tudo
+    const svg = d3.create("svg")
+        .attr("viewBox", [0, 0, width, height])
+        .style("overflow", "visible"); // Impede que o texto seja cortado
+
+    const g = svg.append("g")
+        .attr("transform", `translate(${width/2},${height/2})`);
     
     const angleSlice = (Math.PI * 2) / radarData.length;
     const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius]);
 
-    // Desenhar círculos de fundo
-    const levels = 5;
-    for (let i = 0; i < levels; i++) {
-        g.append("circle")
-            .attr("r", radius * ((i + 1) / levels))
-            .style("fill", "none").style("stroke", "#444").style("stroke-dasharray", "4,4");
-    }
+    // 2. Desenhar as linhas dos eixos
+    const axis = g.selectAll(".axis")
+        .data(radarData)
+        .enter().append("g");
 
-    // Desenhar a forma do radar
+    axis.append("line")
+        .attr("x1", 0)
+        .attr("y1", 0)
+        .attr("x2", (d, i) => rScale(1) * Math.cos(angleSlice * i - Math.PI/2))
+        .attr("y2", (d, i) => rScale(1) * Math.sin(angleSlice * i - Math.PI/2))
+        .style("stroke", "#999")
+        .style("stroke-width", "1px");
+
+    // 3. ADICIONAR AS LABELS (Com coordenadas explícitas e cor visível)
+    axis.append("text")
+        .attr("x", (d, i) => rScale(1.25) * Math.cos(angleSlice * i - Math.PI/2))
+        .attr("y", (d, i) => rScale(1.25) * Math.sin(angleSlice * i - Math.PI/2))
+        .text(d => d.axis)
+        .style("font-family", "sans-serif")
+        .style("font-size", "16px") // Texto maior
+        .style("font-weight", "bold")
+        .style("fill", "#0be7d5") // Usar o ciano da tua marca para garantir visibilidade
+        .attr("text-anchor", "middle")
+        .attr("dy", "0.35em");
+
+    // 4. Desenhar os níveis (círculos tracejados)
+    g.selectAll(".grid-circle")
+        .data([0.2, 0.4, 0.6, 0.8, 1])
+        .enter().append("circle")
+        .attr("r", d => rScale(d))
+        .style("fill", "none")
+        .style("stroke", "#444")
+        .style("stroke-dasharray", "4,4");
+
+    // 5. Desenhar o polígono (Área preenchida)
     const radarLine = d3.lineRadial()
         .curve(d3.curveLinearClosed)
         .radius(d => rScale(d.value))
@@ -100,19 +137,9 @@ radarData = [
         .datum(radarData)
         .attr("d", radarLine)
         .style("fill", currentTrack.category === "High" ? "#0be7d5" : "#ff4d4d")
-        .style("fill-opacity", 0.6)
+        .style("fill-opacity", 0.5)
         .style("stroke", "white")
         .style("stroke-width", "2px");
-
-    // Adicionar labels
-    g.selectAll(".label")
-        .data(radarData)
-        .enter().append("text")
-        .attr("x", (d, i) => rScale(1.2) * Math.cos(angleSlice * i - Math.PI/2))
-        .attr("y", (d, i) => rScale(1.2) * Math.sin(angleSlice * i - Math.PI/2))
-        .text(d => d.axis)
-        .style("font-family", "sans-serif").style("font-size", "12px")
-        .attr("text-anchor", "middle").style("fill", "white");
 
     return svg.node();
 }
