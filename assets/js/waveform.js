@@ -1,3 +1,4 @@
+
 const ctx = new (window.AudioContext || window.webkitAudioContext)();
 const analyser = ctx.createAnalyser();
 analyser.fftSize = 256;
@@ -14,5 +15,5 @@ function draw() {
     requestAnimationFrame(draw);
     analyser.getByteTimeDomainData(dataArray);
 
-    
+
 }

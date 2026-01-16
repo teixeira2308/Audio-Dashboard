@@ -245,5 +245,77 @@ html`<iframe
     frameborder="0"
     allowtransparency="true"
     allow="encrypted-media"></iframe>`
-   
+
+
+{
+    // 1. Definição do URL (usando a lógica de fallback que tinhas)
+    const audioURL = `https://p.scdn.co/mp3-preview/${selectedTrack.track_id}`;
+
+    // 2. Criação do elemento de áudio
+    const audio = html`<audio crossorigin="anonymous" controls src="${audioURL}" style="width: 100%; filter: invert(1);"></audio>`;
+
+    // 3. Configuração do Analisador (Web Audio API)
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ctx.createAnalyser();
+    
+    // CORREÇÃO: Usar o elemento 'audio' que acabaste de criar
+    const source = ctx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(ctx.destination);
+    
+    analyser.fftSize = 1024;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    // 4. Criação do Canvas
+    const canvas = html`<canvas width="400" height="120" style="width: 100%; background: #1a1a1a; border-radius: 8px; margin-top: 10px;"></canvas>`;
+    const canvasCtx = canvas.getContext("2d");
+
+    // 5. Função de desenho corrigida
+    function draw() {
+        requestAnimationFrame(draw);
+        analyser.getByteTimeDomainData(dataArray);
+
+        // CORREÇÃO: Usar canvasCtx e não ctx (ctx é o áudio!)
+        canvasCtx.fillStyle = "#1a1a1a";
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = "#0be7d5";
+        canvasCtx.beginPath();
+
+        const sliceWidth = canvas.width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+
+            if (i === 0) canvasCtx.moveTo(x, y);
+            else canvasCtx.lineTo(x, y);
+
+            x += sliceWidth;
+        }
+
+        canvasCtx.lineTo(canvas.width, canvas.height / 2);
+        canvasCtx.stroke();
+    }
+
+    draw();
+
+    // 6. Retorno do HTML
+    return html`
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px; background: #222; border-radius: 12px; border: 1px solid #333;">
+            <h6 style="margin:0; color:#888; font-size: 0.7em; text-transform: uppercase;">A analisar sinal de:</h6>
+            <div style="font-weight: bold; color: white; margin-bottom: 5px;">${selectedTrack?.track_name || "Selecione uma música"}</div>
+
+            ${audio}
+            ${canvas}
+
+            <div style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 8px; border-left: 4px solid #0be7d5;">
+                <span style="font-size: 0.8em; color: #aaa;">Visualização em tempo real do domínio do tempo (Waveform).</span>
+            </div>
+        </div>
+    `;
+}
 ```
