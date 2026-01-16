@@ -19,3 +19,27 @@ thead, .thead, th, .table thead th {
     color: #0be7d5 !important;
     border-bottom: 2px solid #333 !important;
 }
+
+/* Corrigir a cor do texto enquanto escreves na pesquisa */
+.oi-7b700f-search input, 
+div[class*="oi-"] input {
+    background-color: #2a2a2a !important; /* Fundo cinza escuro */
+    color: white !important;              /* Letra branca */
+    border: 1px solid #444 !important;    /* Borda suave */
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+/* Corrigir a cor da label (o texto "Procurar música ou artista:") */
+.oi-7b700f-search label,
+div[class*="oi-"] label {
+    color: #0be7d5 !important; /* Cor ciano para combinar com o radar */
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+/* Corrigir o ícone de lupa e o botão de limpar (X) */
+.oi-7b700f-search svg,
+div[class*="oi-"] svg {
+    fill: white !important;
+}

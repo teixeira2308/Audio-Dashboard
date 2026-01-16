@@ -6,7 +6,6 @@ format:
         orientation: columns
         scrolling: true
         theme: dark
-        css: main.css
 ---
 
 <link rel="stylesheet" href="assets/css/main.css">
@@ -20,6 +19,8 @@ format:
     crossorigin=""></script>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
+
+## Coluna 1 {width=60%}
 
 ```{ojs}
 
@@ -37,34 +38,116 @@ all_music = {
 
 viewof search = Inputs.search(all_music, {label: "Procurar música ou artista:"})
 
-Plot.plot({
-    grid: true,
-    marks: [
-        Plot.dot(search, {
-            x: "danceability",
-            y: "energy",
-            stroke: "category",
-            tip: true,
-            strokeWidth: d => d.track_id === selectedTrack?.track_id ? 4 : 1,
-            r: d => d.track_id === selectedTrack?.track_id ? 8 : 3
-        })
-    ]
-})
-
-viewof selectedTrack = Inputs.table(search, {
-    rows: 12,
-    multiple: false,
-    layout: "fixed",
-    columns: ["track_name", "track_artist", "playlist_genre", "track_popularity"]
-})
-
-``` 
-
-## Column {width=40%}
-
-``` {ojs}
 currentTrack = selectedTrack || search[0] || all_music[0]
 
+//| label: estatisticas-biblioteca
+{
+    const totalMusicas = all_music.length;
+    const generosDistintos = new Set(all_music.map(d => d.playlist_genre)).size;
+    const avgPopularity = d3.mean(all_music, d => d.track_popularity).toFixed(1);
+
+    return html`
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+      <div class="card-stat" style="background: #1e1e1e; padding: 15px; border-radius: 8px; border-top: 4px solid #0be7d5;">
+        <span style="color: #888; font-size: 0.8em;">TOTAL DE MÚSICAS</span>
+        <div style="font-size: 1.5em; font-weight: bold;">${totalMusicas}</div>
+      </div>
+      <div class="card-stat" style="background: #1e1e1e; padding: 15px; border-radius: 8px; border-top: 4px solid #ff4d4d;">
+        <span style="color: #888; font-size: 0.8em;">GÉNEROS MUSICAIS</span>
+        <div style="font-size: 1.5em; font-weight: bold;">${generosDistintos}</div>
+      </div>
+      <div class="card-stat" style="background: #1e1e1e; padding: 15px; border-radius: 8px; border-top: 4px solid #ffd700;">
+        <span style="color: #888; font-size: 0.8em;">POPULARIDADE MÉDIA</span>
+        <div style="font-size: 1.5em; font-weight: bold;">${avgPopularity}%</div>
+      </div>
+    </div>`;
+}
+
+viewof selectedTrack = {
+  // 1. Janela de preview independente (Plot)
+  const preview = html`<div style="
+    position: fixed; z-index: 10000; 
+    background: #1a1a1a; border: 1px solid #0be7d5; 
+    padding: 10px; 
+  "></div>`;
+
+  document.body.appendChild(preview);
+
+  const container = html`<div style="max-height: 500px; display: flex; flex-direction: column; gap: 8px;">
+    ${search.map(d => {
+        const card = html`
+                <div style="background: #2a2a2a; padding: 12px; cursor: pointer; transition: 0.1s;">
+                    <div style="font-weight: bold; color: white; font-size: 0.95em;">
+                        ${d.track_name}
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between;">
+                        <div style="font-size: 0.8em; color: #aaa;">${d.track_artist}</div>
+                        <div style="font-size: 0.7em; background: #444; color: #eee; padding: 1px 6px; border-radius: 10px; text-transform: uppercase;">
+                            ${d.playlist_genre}
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 5px;">
+                        <div style="font-size: 0.65em; color: #666;">POPULARIDADE: ${d.track_popularity}%</div>
+                        <div style="height: 4px; background: #444;">
+                            <div style="width: ${d.track_popularity}%; height: 100%; background: ${d.track_popularity > 70 ? '#0be7d5' : '#ffd700'}; border-radius: 2px;"></div>
+                        </div>
+                    </div>
+                </div>`;
+      
+      // AÇÃO 1: Mover o rato (Apenas Preview)
+      card.onmouseenter = (event) => {
+        // Estilo visual temporário
+        card.style.backgroundColor = '#333';
+        
+        const chart = Plot.plot({
+          width: 250,
+          height: 180,
+          style: {background: "transparent", color: "white"},
+          marks: [
+            Plot.dot(all_music, {x: "danceability", y: "energy", fill: "#444", r: 1.5, opacity: 0.5}),
+            Plot.dot([d], {x: "danceability", y: "energy", fill: "#0be7d5", r: 6, stroke: "white"})
+          ]
+        });
+
+        preview.innerHTML = `<div style="font-size: 11px; color: #0be7d5; font-weight: bold; text-align: center;">Preview: Dance vs Energy</div>`;
+        preview.appendChild(chart);
+        preview.style.display = "block";
+      };
+
+      card.onmousemove = (event) => {
+        preview.style.left = (event.clientX + 15) + "px";
+        preview.style.top = (event.clientY - 90) + "px";
+      };
+
+      card.onmouseleave = () => {
+        card.style.backgroundColor = '#2a2a2a';
+        preview.style.display = "none";
+      };
+
+      // AÇÃO 2: Clicar (Atualiza a Coluna 2)
+      card.onclick = () => {
+        // Remove destaque visual de todos e coloca no clicado
+        Array.from(container.children).forEach(c => c.style.borderColor = '#333');
+        card.style.borderColor = '#0be7d5';
+        
+        container.value = d;
+        container.dispatchEvent(new CustomEvent("input"));
+      };
+      
+      return card;
+    })}
+  </div>`;
+
+  container.value = search[0]; 
+  return container;
+}
+```
+
+## Coluna 2 {width=40%}
+
+``` {ojs}
 radarData = [
     {axis: "Energy", value: currentTrack.energy },
     {axis: "Dance", value: currentTrack.danceability },
@@ -73,19 +156,18 @@ radarData = [
     {axis: "Speech", value: currentTrack.speechiness }
 ];
 
-
 {
     // 1. Aumentamos as dimensões e a margem (espaço para o texto)
-    const width = 500; 
-    const height = 500;
-    const margin = 80; // Margem generosa para as labels
+    const width = 300; 
+    const height = 300;
+    const margin = 50; // Margem generosa para as labels
     
     const radius = Math.min(width, height) / 2 - margin;
     
     // Criar o SVG com um viewBox que abrange tudo
     const svg = d3.create("svg")
         .attr("viewBox", [0, 0, width, height])
-        .style("overflow", "visible"); // Impede que o texto seja cortado
+        .style("overflow", "visible");
 
     const g = svg.append("g")
         .attr("transform", `translate(${width/2},${height/2})`);
@@ -106,7 +188,7 @@ radarData = [
         .style("stroke", "#999")
         .style("stroke-width", "1px");
 
-    // 3. ADICIONAR AS LABELS (Com coordenadas explícitas e cor visível)
+    // 3. Adicionar Labels (Com coordenadas explícitas e cor visível)
     axis.append("text")
         .attr("x", (d, i) => rScale(1.25) * Math.cos(angleSlice * i - Math.PI/2))
         .attr("y", (d, i) => rScale(1.25) * Math.sin(angleSlice * i - Math.PI/2))
@@ -143,16 +225,25 @@ radarData = [
 
     return svg.node();
 }
-```
 
-``` {ojs}
+{
+    const genreAvgEnergy = d3.mean(all_music.filter(d => d.playlist_genre === currentTrack.playlist_genre), d => d.energy);
+    const diff = ((currentTrack.energy - genreAvgEnergy) * 100).toFixed(1);
 
+    return html`
+        <div style="font-size: 0.9em;">
+        <p><strong>Análise Comparativa:</strong> Esta faixa tem uma energia 
+        <span style="color: ${diff > 0 ? '#0be7d5' : '#ff4d4d'}">
+            <b>${Math.abs(diff)}% ${diff > 0 ? 'superior' : 'inferior'}</b>
+        </span> 
+        à média do género <b>${currentTrack.playlist_genre}</b>.</p>
+        </div>`;
+}
 html`<iframe
     src=${"https://open.spotify.com/embed/track/" + (selectedTrack?.track_id || all_music[0].track_id)}
     width="100%" height="152"
     frameborder="0"
     allowtransparency="true"
     allow="encrypted-media"></iframe>`
-
-```      
-
+   
+```
