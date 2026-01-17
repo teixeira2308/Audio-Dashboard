@@ -9,11 +9,6 @@ body, .quarto-dashboard, .page-layout-custom {
     color: white !important;
 }
 
-.table, .thead, .tbody, .table-responsive {
-    color: white !important;
-    background-color: #1e1e1e !important;
-}
-
 thead, .thead, th, .table thead th {
     background-color: #000000 !important;
     color: #0be7d5 !important;
@@ -30,16 +25,14 @@ div[class*="oi-"] input {
     padding: 4px 8px;
 }
 
-/* Corrigir a cor da label (o texto "Procurar música ou artista:") */
-.oi-7b700f-search label,
-div[class*="oi-"] label {
-    color: #0be7d5 !important; /* Cor ciano para combinar com o radar */
-    font-weight: bold;
-    margin-right: 10px;
+.navbar {
+  background-color: black !important; /* Muda para a cor que desejares */
 }
 
-/* Corrigir o ícone de lupa e o botão de limpar (X) */
-.oi-7b700f-search svg,
-div[class*="oi-"] svg {
-    fill: white !important;
+.navbar-title, .navbar-brand {
+  color: #0be7d5 !important;
 }
+
+
+
+

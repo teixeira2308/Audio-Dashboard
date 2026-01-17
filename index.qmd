@@ -1,30 +1,18 @@
 ---
 title: "Audio Dashboard - Million Song Dataset"
 author: Tiago Teixeira, Jaime Rodrigues
-format: 
+format:
     dashboard:
         orientation: columns
         scrolling: true
+        expandable: false
         theme: dark
 ---
-
 <link rel="stylesheet" href="assets/css/main.css">
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""/>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""></script>
-
 <script src="https://d3js.org/d3.v7.min.js"></script>
 
-## Coluna 1 {width=60%}
-
 ```{ojs}
-
-
+//| output: false
 dataHigh = FileAttachment("data/high_popularity_spotify_data.json").json()
 dataLow = FileAttachment("data/low_popularity_spotify_data.json").json()
 
@@ -35,119 +23,80 @@ all_music = {
     ];
     return Array.from(new Map(combined.map(item => [item.track_id, item])).values());
 }
+```
 
+## Coluna 1 {width=60%}
+
+###  Filtros {.toolbar}
+
+``` {ojs}
 viewof search = Inputs.search(all_music, {label: "Procurar música ou artista:"})
+```
+
+### Estatísticas da Biblioteca
+
+``` {ojs}
+//| component: valuebox
+//| title: "Total de Músicas"
+//| color: "#0be7d5"
+//| icon: music-note-beamed
+all_music.length
+```
+
+```{ojs}
+//| component: valuebox
+//| title: "Géneros Musicais"
+//| color: "#0be7d5"
+//| icon: tags
+new Set(all_music.map(d => d.playlist_genre)).size
+```
+
+```{ojs}
+//| component: valuebox
+//| title: "Popularidade Média"
+//| color: "#0be7d5"
+//| icon: graph-up-arrow
+
+{
+    const media = d3.mean(all_music, d => d.track_popularity);
+    return html`<h3>${media.toFixed(1)}%</h3>`;
+}
+
+```
+
+### Lista de musicas
+
+``` {ojs}
+
+viewof selectedTrack = Inputs.table(search, {
+    columns: ["track_name", "track_artist", "playlist_genre", "track_popularity"],
+    header: {
+        track_name: "Música",
+        track_artist: "Artista",
+        playlist_genre: "Género",
+        track_popularity: "Popularidade"
+    },
+    format: {
+        track_popularity: p => html`<div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: ${p}px; max-width: 100px; height: 8px; background: ${p > 70 ? '#0be7d5' : '#ffd700'}; border-radius: 4px;"></div>
+            <span>${p}%</span>
+        </div>`
+    },
+    layout: "fixed",
+    rows: 15,
+    multiple: false,
+})
 
 currentTrack = selectedTrack || search[0] || all_music[0]
 
-//| label: estatisticas-biblioteca
-{
-    const totalMusicas = all_music.length;
-    const generosDistintos = new Set(all_music.map(d => d.playlist_genre)).size;
-    const avgPopularity = d3.mean(all_music, d => d.track_popularity).toFixed(1);
-
-    return html`
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
-      <div class="card-stat" style="background: #1e1e1e; padding: 15px; border-radius: 8px; border-top: 4px solid #0be7d5;">
-        <span style="color: #888; font-size: 0.8em;">TOTAL DE MÚSICAS</span>
-        <div style="font-size: 1.5em; font-weight: bold;">${totalMusicas}</div>
-      </div>
-      <div class="card-stat" style="background: #1e1e1e; padding: 15px; border-radius: 8px; border-top: 4px solid #ff4d4d;">
-        <span style="color: #888; font-size: 0.8em;">GÉNEROS MUSICAIS</span>
-        <div style="font-size: 1.5em; font-weight: bold;">${generosDistintos}</div>
-      </div>
-      <div class="card-stat" style="background: #1e1e1e; padding: 15px; border-radius: 8px; border-top: 4px solid #ffd700;">
-        <span style="color: #888; font-size: 0.8em;">POPULARIDADE MÉDIA</span>
-        <div style="font-size: 1.5em; font-weight: bold;">${avgPopularity}%</div>
-      </div>
-    </div>`;
-}
-
-viewof selectedTrack = {
-  // 1. Janela de preview independente (Plot)
-  const preview = html`<div style="
-    position: fixed; z-index: 10000; 
-    background: #1a1a1a; border: 1px solid #0be7d5; 
-    padding: 10px; 
-  "></div>`;
-
-  document.body.appendChild(preview);
-
-  const container = html`<div style="max-height: 500px; display: flex; flex-direction: column; gap: 8px;">
-    ${search.map(d => {
-        const card = html`
-                <div style="background: #2a2a2a; padding: 12px; cursor: pointer; transition: 0.1s;">
-                    <div style="font-weight: bold; color: white; font-size: 0.95em;">
-                        ${d.track_name}
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between;">
-                        <div style="font-size: 0.8em; color: #aaa;">${d.track_artist}</div>
-                        <div style="font-size: 0.7em; background: #444; color: #eee; padding: 1px 6px; border-radius: 10px; text-transform: uppercase;">
-                            ${d.playlist_genre}
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 5px;">
-                        <div style="font-size: 0.65em; color: #666;">POPULARIDADE: ${d.track_popularity}%</div>
-                        <div style="height: 4px; background: #444;">
-                            <div style="width: ${d.track_popularity}%; height: 100%; background: ${d.track_popularity > 70 ? '#0be7d5' : '#ffd700'}; border-radius: 2px;"></div>
-                        </div>
-                    </div>
-                </div>`;
-      
-      // AÇÃO 1: Mover o rato (Apenas Preview)
-      card.onmouseenter = (event) => {
-        // Estilo visual temporário
-        card.style.backgroundColor = '#333';
-        
-        const chart = Plot.plot({
-          width: 250,
-          height: 180,
-          style: {background: "transparent", color: "white"},
-          marks: [
-            Plot.dot(all_music, {x: "danceability", y: "energy", fill: "#444", r: 1.5, opacity: 0.5}),
-            Plot.dot([d], {x: "danceability", y: "energy", fill: "#0be7d5", r: 6, stroke: "white"})
-          ]
-        });
-
-        preview.innerHTML = `<div style="font-size: 11px; color: #0be7d5; font-weight: bold; text-align: center;">Preview: Dance vs Energy</div>`;
-        preview.appendChild(chart);
-        preview.style.display = "block";
-      };
-
-      card.onmousemove = (event) => {
-        preview.style.left = (event.clientX + 15) + "px";
-        preview.style.top = (event.clientY - 90) + "px";
-      };
-
-      card.onmouseleave = () => {
-        card.style.backgroundColor = '#2a2a2a';
-        preview.style.display = "none";
-      };
-
-      // AÇÃO 2: Clicar (Atualiza a Coluna 2)
-      card.onclick = () => {
-        // Remove destaque visual de todos e coloca no clicado
-        Array.from(container.children).forEach(c => c.style.borderColor = '#333');
-        card.style.borderColor = '#0be7d5';
-        
-        container.value = d;
-        container.dispatchEvent(new CustomEvent("input"));
-      };
-      
-      return card;
-    })}
-  </div>`;
-
-  container.value = search[0]; 
-  return container;
-}
 ```
 
-## Coluna 2 {width=40%}
+## Coluna2 {width=40%}
+
+### Perfil de Áudio {height=33%}
 
 ``` {ojs}
+
 radarData = [
     {axis: "Energy", value: currentTrack.energy },
     {axis: "Dance", value: currentTrack.danceability },
@@ -155,27 +104,21 @@ radarData = [
     {axis: "Valence", value: currentTrack.valence },
     {axis: "Speech", value: currentTrack.speechiness }
 ];
-
 {
-    // 1. Aumentamos as dimensões e a margem (espaço para o texto)
-    const width = 300; 
+    const width = 300;
     const height = 300;
-    const margin = 50; // Margem generosa para as labels
-    
+    const margin = 50; 
     const radius = Math.min(width, height) / 2 - margin;
-    
-    // Criar o SVG com um viewBox que abrange tudo
     const svg = d3.create("svg")
         .attr("viewBox", [0, 0, width, height])
         .style("overflow", "visible");
 
     const g = svg.append("g")
         .attr("transform", `translate(${width/2},${height/2})`);
-    
+
     const angleSlice = (Math.PI * 2) / radarData.length;
     const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius]);
 
-    // 2. Desenhar as linhas dos eixos
     const axis = g.selectAll(".axis")
         .data(radarData)
         .enter().append("g");
@@ -188,19 +131,17 @@ radarData = [
         .style("stroke", "#999")
         .style("stroke-width", "1px");
 
-    // 3. Adicionar Labels (Com coordenadas explícitas e cor visível)
     axis.append("text")
         .attr("x", (d, i) => rScale(1.25) * Math.cos(angleSlice * i - Math.PI/2))
         .attr("y", (d, i) => rScale(1.25) * Math.sin(angleSlice * i - Math.PI/2))
         .text(d => d.axis)
         .style("font-family", "sans-serif")
-        .style("font-size", "16px") // Texto maior
+        .style("font-size", "16px") 
         .style("font-weight", "bold")
-        .style("fill", "#0be7d5") // Usar o ciano da tua marca para garantir visibilidade
+        .style("fill", "#0be7d5") 
         .attr("text-anchor", "middle")
         .attr("dy", "0.35em");
 
-    // 4. Desenhar os níveis (círculos tracejados)
     g.selectAll(".grid-circle")
         .data([0.2, 0.4, 0.6, 0.8, 1])
         .enter().append("circle")
@@ -209,7 +150,8 @@ radarData = [
         .style("stroke", "#444")
         .style("stroke-dasharray", "4,4");
 
-    // 5. Desenhar o polígono (Área preenchida)
+    // 5. Desenhr o polígono (Área preenchida)
+
     const radarLine = d3.lineRadial()
         .curve(d3.curveLinearClosed)
         .radius(d => rScale(d.value))
@@ -222,64 +164,87 @@ radarData = [
         .style("fill-opacity", 0.5)
         .style("stroke", "white")
         .style("stroke-width", "2px");
-
     return svg.node();
 }
 
-{
-    const genreAvgEnergy = d3.mean(all_music.filter(d => d.playlist_genre === currentTrack.playlist_genre), d => d.energy);
-    const diff = ((currentTrack.energy - genreAvgEnergy) * 100).toFixed(1);
+```
 
-    return html`
-        <div style="font-size: 0.9em;">
-        <p><strong>Análise Comparativa:</strong> Esta faixa tem uma energia 
-        <span style="color: ${diff > 0 ? '#0be7d5' : '#ff4d4d'}">
-            <b>${Math.abs(diff)}% ${diff > 0 ? 'superior' : 'inferior'}</b>
-        </span> 
-        à média do género <b>${currentTrack.playlist_genre}</b>.</p>
-        </div>`;
+### Comparativo de Energia {height=33%}
+
+```{ojs}
+
+{
+  const genreAvgEnergy = d3.mean(all_music.filter(d => d.playlist_genre === currentTrack.playlist_genre), d => d.energy);
+
+  return Plot.plot({
+    title: html`<div style="font-size: 14px; margin-bottom: 10px; color: white;">
+                  Energia: <b>${currentTrack.track_name}</b> vs Média de <b>${currentTrack.playlist_genre}</b>
+                </div>`,
+    height: 120,
+    marginLeft: 20,
+    marginRight: 20,
+    x: { domain: [0, 1], label: "Nível de Energia →", grid: true },
+    marks: [
+      // Barra de fundo que representa a média do género
+      Plot.barX([genreAvgEnergy], {
+        x: genreAvgEnergy,
+        fill: "#333",
+        fillOpacity: 0.8,
+        insetTop: 20,
+        insetBottom: 20
+      }),
+
+      // Linha vertical branca no ponto exato da média
+
+      Plot.ruleX([genreAvgEnergy], {stroke: "white", strokeWidth: 2.5}),
+
+      // O ponto (dot) que representa a música atual
+
+      Plot.dot([currentTrack.energy], {
+          x: d => d,
+          fill: currentTrack.energy > genreAvgEnergy ? "#0be7d5" : "#ff4d4d",
+          r: 8,
+          stroke: "white",
+          strokeWidth: 2
+      }),
+      // Textos explicativos
+
+      Plot.text([`Média`], {x: genreAvgEnergy, dy: -40, fill: "#888", fontSize: 11}),
+      Plot.text([`Música`], {x: currentTrack.energy, dy: 40, fill: "white", fontWeight: "bold", fontSize: 12})
+    ],
+    style: {
+      background: "transparent",
+      color: "#ccc",
+      fontFamily: "sans-serif",
+      overflow: "visible" // Garante que as labels fora do eixo aparecem
+    }
+  });
 }
+```
+
+### Reprodução e Análise {height=33%}
+
+```{ojs}
+
 html`<iframe
     src=${"https://open.spotify.com/embed/track/" + (selectedTrack?.track_id || all_music[0].track_id)}
     width="100%" height="152"
     frameborder="0"
     allowtransparency="true"
     allow="encrypted-media"></iframe>`
-
-
 {
-    // 1. Definição do URL (usando a lógica de fallback que tinhas)
-    const audioURL = `https://p.scdn.co/mp3-preview/${selectedTrack.track_id}`;
-
-    // 2. Criação do elemento de áudio
-    const audio = html`<audio crossorigin="anonymous" controls src="${audioURL}" style="width: 100%; filter: invert(1);"></audio>`;
-
-    // 3. Configuração do Analisador (Web Audio API)
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = ctx.createAnalyser();
-    
-    // CORREÇÃO: Usar o elemento 'audio' que acabaste de criar
-    const source = ctx.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(ctx.destination);
-    
-    analyser.fftSize = 1024;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    // 4. Criação do Canvas
-    const canvas = html`<canvas width="400" height="120" style="width: 100%; background: #1a1a1a; border-radius: 8px; margin-top: 10px;"></canvas>`;
+    let ctx, analyser, dataArray, bufferLength, animationId;
+    const audioPath = `assets/audio/${currentTrack.track_id}.mp3`
+    const canvas = html`<canvas width="400" height="100" style="width:100%; background:#1a1a1a; border-radius:8px;"></canvas>`;
     const canvasCtx = canvas.getContext("2d");
+    const audio = html`<audio controls src="${audioPath}" style="width:100%; margin-top:10px;"></audio>`;
 
-    // 5. Função de desenho corrigida
     function draw() {
-        requestAnimationFrame(draw);
+        animationId = requestAnimationFrame(draw);
         analyser.getByteTimeDomainData(dataArray);
 
-        // CORREÇÃO: Usar canvasCtx e não ctx (ctx é o áudio!)
         canvasCtx.fillStyle = "#1a1a1a";
         canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-        
         canvasCtx.lineWidth = 2;
         canvasCtx.strokeStyle = "#0be7d5";
         canvasCtx.beginPath();
@@ -288,34 +253,43 @@ html`<iframe
         let x = 0;
 
         for (let i = 0; i < bufferLength; i++) {
-            const v = dataArray[i] / 128.0;
-            const y = (v * canvas.height) / 2;
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2;
 
-            if (i === 0) canvasCtx.moveTo(x, y);
-            else canvasCtx.lineTo(x, y);
+        if (i === 0) canvasCtx.moveTo(x, y);
+        else canvasCtx.lineTo(x, y);
 
-            x += sliceWidth;
+        x += sliceWidth;
         }
 
-        canvasCtx.lineTo(canvas.width, canvas.height / 2);
         canvasCtx.stroke();
     }
 
-    draw();
+    audio.onplay = () => {
+        if (!ctx) {
+            ctx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = ctx.createAnalyser();
+            const source = ctx.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(ctx.destination);
+            analyser.fftSize = 1024;
+            bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            draw();
+        }
+    };
 
-    // 6. Retorno do HTML
     return html`
-        <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px; background: #222; border-radius: 12px; border: 1px solid #333;">
-            <h6 style="margin:0; color:#888; font-size: 0.7em; text-transform: uppercase;">A analisar sinal de:</h6>
-            <div style="font-weight: bold; color: white; margin-bottom: 5px;">${selectedTrack?.track_name || "Selecione uma música"}</div>
-
+        <div style="padding:15px; background:#222; border-radius:12px; border:1px solid #333;">
+            <h6 style="margin:0; color:#888; font-size:0.7em; text-transform:uppercase;">Análise de Áudio Local</h6>
+            <div style="font-weight:bold; color:white; margin-bottom:5px;">${currentTrack.track_name}</div>
             ${audio}
             ${canvas}
-
-            <div style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 8px; border-left: 4px solid #0be7d5;">
-                <span style="font-size: 0.8em; color: #aaa;">Visualização em tempo real do domínio do tempo (Waveform).</span>
+            <div>
+                <span style="color:#aaa;">Ficheiro: ${currentTrack.track_id}.mp3</span>
             </div>
         </div>
     `;
 }
+
 ```
